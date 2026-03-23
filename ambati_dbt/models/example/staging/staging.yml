@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: "Cleaned transaction events"
+    columns:
+      - name: transaction_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+      - name: timestamp
+        tests: [not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['pass', 'fail']
+      - name: amount
+        tests: [not_null]
+      - name: card_brand
+        tests:
+          - accepted_values:
+              values: ['MASTERCARD', 'VISA', 'AMEX', 'DISCOVER']
+
+  - name: stg_clickstream
+    description: "Cleaned clickstream events"
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+      - name: timestamp
+        tests: [not_null]
+
+  - name: stg_customers
+    description: "Cleaned customer master data"
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: ssn
+        tests: [not_null]
+
+  - name: stg_credit_bureau
+    description: "Cleaned credit bureau data"
+    columns:
+      - name: ssn
+        tests: [not_null, unique]
+      - name: credit_score
+        tests: [not_null]

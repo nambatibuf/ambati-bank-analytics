@@ -1,0 +1,58 @@
+version: 2
+
+sources:
+  - name: ambati_ops
+    project: ambati-bank-analytics
+    dataset: ambati_ops
+    description: "Raw landing tables from Pub/Sub and batch ingestion"
+
+    tables:
+      - name: transactions_raw
+        description: "Raw transaction events from core banking - US, UK, Canada"
+        columns:
+          - name: transaction_id
+            description: "Primary key - unique transaction identifier"
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            description: "Foreign key to customers"
+            tests:
+              - not_null
+          - name: timestamp
+            description: "Transaction timestamp UTC"
+            tests:
+              - not_null
+
+      - name: clickstream_raw
+        description: "Raw clickstream events from mobile and web"
+        columns:
+          - name: event_id
+            description: "Primary key - unique event identifier"
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            description: "Customer who triggered the event"
+            tests:
+              - not_null
+
+      - name: customers_raw
+        description: "Customer master data - loaded hourly from batch"
+        columns:
+          - name: customer_id
+            description: "Primary key"
+            tests:
+              - not_null
+          - name: ssn
+            description: "Social security number - sensitive"
+            tests:
+              - not_null
+
+      - name: credit_bureau_raw
+        description: "Credit bureau data from Equifax/Experian - hourly batch"
+        columns:
+          - name: ssn
+            description: "Primary key - links to customers"
+            tests:
+              - not_null

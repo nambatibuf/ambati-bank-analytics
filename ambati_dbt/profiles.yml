@@ -1,0 +1,12 @@
+ambati_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: ambati-bank-analytics
+      dataset: ambati_dbt
+      keyfile: /Users/nikhil/projects/ambank-bank-analytics/ambati-bank-analytics-810522e1864e.json
+      location: US
+      threads: 4
+      job_execution_timeout_seconds: 300

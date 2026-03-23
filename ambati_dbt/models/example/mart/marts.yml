@@ -1,0 +1,479 @@
+version: 2
+
+models:
+
+  # ── dim_customers ─────────────────────────────────────────────
+  - name: dim_customers
+    description: >
+      Customer dimension table — full 360 profile combining customer master
+      data with credit bureau enrichment. One row per customer, deduplicated
+      on latest batch. Used as the primary customer lookup across all fact tables.
+
+    config:
+      where: "batch_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+
+    columns:
+      - name: customer_id
+        description: "Primary key — unique customer identifier"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - unique:
+              config:
+                severity: warn
+
+      - name: ssn
+        description: "Social security number — sensitive PII"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: full_name
+        description: "Customer full name — title case"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: email
+        description: "Customer email — lowercase"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: country
+        description: "Country of residence"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['US', 'UK', 'CANADA']
+              config:
+                severity: warn
+
+      - name: gender
+        description: "Customer gender"
+        tests:
+          - accepted_values:
+              values: ['Male', 'Female', 'Non-binary']
+              config:
+                severity: warn
+
+      - name: account_status
+        description: "Current account status"
+        tests:
+          - accepted_values:
+              values: ['Active', 'Dormant', 'Closed', 'Suspended']
+              config:
+                severity: warn
+
+      - name: kyc_status
+        description: "KYC verification status"
+        tests:
+          - accepted_values:
+              values: ['VERIFIED', 'PENDING', 'FAILED']
+              config:
+                severity: warn
+
+      - name: income_group
+        description: "Customer income group"
+        tests:
+          - accepted_values:
+              values: ['Low Income', 'Middle Income', 'High Income']
+              config:
+                severity: warn
+
+      - name: annual_income
+        description: "Annual income in local currency"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: credit_band
+        description: "Derived credit band from credit score"
+        tests:
+          - accepted_values:
+              values: ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
+              config:
+                severity: warn
+                where: "has_bureau_data = true"
+
+      - name: dti_category
+        description: "Derived DTI risk category"
+        tests:
+          - accepted_values:
+              values: ['Low Risk', 'Manageable', 'Risky', 'High Risk', 'Severe']
+              config:
+                severity: warn
+                where: "has_bureau_data = true"
+
+      - name: risk_category
+        description: "Derived risk category from loan risk score"
+        tests:
+          - accepted_values:
+              values: ['Low Risk', 'Moderate', 'High Risk']
+              config:
+                severity: warn
+                where: "has_bureau_data = true"
+
+      - name: has_bureau_data
+        description: "Flag — true if customer has credit bureau data"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+  # ── fact_transactions ─────────────────────────────────────────
+  - name: fact_transactions
+    description: >
+      Incremental transactions fact table — one row per transaction enriched
+      with customer and credit bureau data. Partitioned by transaction_date,
+      clustered by country, card_brand, status. Primary source for all
+      transaction dashboards and operational metrics.
+
+    config:
+      where: "transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+
+    columns:
+      - name: transaction_id
+        description: "Primary key — unique transaction identifier"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - unique:
+              config:
+                severity: warn
+
+      - name: customer_id
+        description: "Foreign key to dim_customers"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: timestamp
+        description: "Transaction timestamp UTC"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: transaction_date
+        description: "Partition key — date derived from timestamp"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: status
+        description: "Transaction outcome — pass or fail"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['pass', 'fail']
+              config:
+                severity: warn
+
+      - name: card_brand
+        description: "Card brand used for transaction"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['MASTERCARD', 'VISA', 'AMEX', 'DISCOVER']
+              config:
+                severity: warn
+
+      - name: amount
+        description: "Transaction amount in local currency"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: amount_usd
+        description: "Transaction amount converted to USD"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: currency
+        description: "Transaction currency code"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['USD', 'GBP', 'CAD']
+              config:
+                severity: warn
+
+      - name: country
+        description: "Transaction country"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['US', 'UK', 'CANADA']
+              config:
+                severity: warn
+
+      - name: channel
+        description: "Transaction channel"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['in_store', 'online', 'mobile_app', 'atm', 'contactless']
+              config:
+                severity: warn
+
+      - name: merchant_category
+        description: "Merchant category description"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: is_flagged
+        description: "Risk flag — true if transaction flagged for review"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: transaction_type
+        description: "Type of transaction"
+        tests:
+          - accepted_values:
+              values: ['purchase', 'refund', 'withdrawal', 'transfer', 'payment']
+              config:
+                severity: warn
+
+  # ── fact_clickstream ──────────────────────────────────────────
+  - name: fact_clickstream
+    description: >
+      Incremental clickstream fact table — one row per digital event enriched
+      with customer data. Partitioned by event_date, clustered by country,
+      channel, device_type. Primary source for digital channel analytics
+      and customer behaviour dashboards.
+
+    config:
+      where: "event_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
+
+    columns:
+      - name: event_id
+        description: "Primary key — unique event identifier"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - unique:
+              config:
+                severity: warn
+
+      - name: customer_id
+        description: "Foreign key to dim_customers"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: timestamp
+        description: "Event timestamp UTC"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: event_date
+        description: "Partition key — date derived from timestamp"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: session_id
+        description: "Session identifier"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: channel
+        description: "Digital channel"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['Mobile', 'Web', 'Tablet']
+              config:
+                severity: warn
+
+      - name: device_type
+        description: "Device category"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['Mobile', 'Desktop']
+              config:
+                severity: warn
+
+      - name: page
+        description: "Page viewed"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: action
+        description: "User action on page"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['view', 'click', 'submit', 'scroll', 'logout',
+                       'search', 'download', 'filter', 'sort', 'expand', 'collapse']
+              config:
+                severity: warn
+
+      - name: country
+        description: "Country of the session"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['US', 'UK', 'CANADA']
+              config:
+                severity: warn
+
+      - name: is_authenticated
+        description: "Whether user was logged in"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: error_encountered
+        description: "Whether an error occurred"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+  # ── mart_txn_summary ──────────────────────────────────────────
+  - name: mart_txn_summary
+    description: >
+      Incremental daily transaction summary — pre-aggregated metrics grouped
+      by date, country, card brand, merchant category, channel and status.
+      Reprocesses last 3 days on each run to handle late-arriving data.
+      Primary source for operational KPI dashboards in Looker Studio.
+
+    config:
+      where: "transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)"
+
+    columns:
+      - name: transaction_date
+        description: "Composite PK part 1 — summary date"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: country
+        description: "Composite PK part 2 — transaction country"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['US', 'UK', 'CANADA']
+              config:
+                severity: warn
+
+      - name: card_brand
+        description: "Composite PK part 3 — card brand"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: merchant_category
+        description: "Composite PK part 4 — merchant category"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: channel
+        description: "Composite PK part 5 — transaction channel"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: status
+        description: "Composite PK part 6 — pass or fail"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+          - accepted_values:
+              values: ['pass', 'fail']
+              config:
+                severity: warn
+
+      - name: total_transactions
+        description: "Total number of transactions in group"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: unique_customers
+        description: "Distinct customers in group"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: total_amount_usd
+        description: "Sum of transaction amounts in USD"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: pass_rate_pct
+        description: "Pass rate percentage 0-100"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: flagged_count
+        description: "Number of flagged transactions"
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: avg_risk_score
+        description: "Average risk score for group"
