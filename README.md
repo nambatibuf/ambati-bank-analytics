@@ -1,5 +1,17 @@
 <div align="center">
 
+<img src="Ambati_Bank_logo_design.png" width="420"/>
+
+<br/>
+<br/>
+
+# Real-Time Banking Analytics Pipeline
+
+**A production-grade end-to-end data engineering pipeline built on Google Cloud Platform**  
+*Simulating real-time banking operations across US 🇺🇸 · UK 🇬🇧 · Canada 🇨🇦*
+
+<br/>
+
 <img src="https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white"/>
 <img src="https://img.shields.io/badge/BigQuery-4285F4?style=for-the-badge&logo=googlebigquery&logoColor=white"/>
 <img src="https://img.shields.io/badge/dbt-FF694B?style=for-the-badge&logo=dbt&logoColor=white"/>
@@ -7,25 +19,6 @@
 <img src="https://img.shields.io/badge/Pub%2FSub-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white"/>
 
 <br/>
-<br/>
-
-```
-    ╔══════════════════════════════════════════╗
-    ║   █████╗ ███╗   ███╗██████╗  █████╗ ████████╗██╗   ██╗  ║
-    ║  ██╔══██╗████╗ ████║██╔══██╗██╔══██╗╚══██╔══╝██║   ██║  ║
-    ║  ███████║██╔████╔██║██████╔╝███████║   ██║   ██║   ██║  ║
-    ║  ██╔══██║██║╚██╔╝██║██╔══██╗██╔══██║   ██║   ██║   ██║  ║
-    ║  ██║  ██║██║ ╚═╝ ██║██████╔╝██║  ██║   ██║   ╚██████╔╝  ║
-    ║  ╚═╝  ╚═╝╚═╝     ╚═╝╚═════╝ ╚═╝  ╚═╝   ╚═╝    ╚═════╝   ║
-    ║                    B A N K                                ║
-    ╚══════════════════════════════════════════╝
-```
-
-# Real-Time Banking Analytics Pipeline
-
-**A production-grade end-to-end data engineering pipeline built on Google Cloud Platform**  
-*Simulating real-time banking operations across US 🇺🇸 · UK 🇬🇧 · Canada 🇨🇦*
-
 <br/>
 
 [![Pipeline Status](https://img.shields.io/badge/Pipeline-Live-66BD29?style=flat-square&logo=googlecloud&logoColor=white)](/)
@@ -51,6 +44,18 @@
 - [dbt Models](#dbt-models)
 - [Dashboard](#dashboard)
 - [Future Enhancements](#future-enhancements)
+
+---
+
+## 📸 Dashboard Preview
+
+| Transactions | Demographics |
+|---|---|
+| ![Transactions](sc1.png) | ![Demographics](sc2.png) |
+
+| Financial Health | Card Details |
+|---|---|
+| ![Financial Health](sc3.png) | ![Card Details](sc4.png) |
 
 ---
 
