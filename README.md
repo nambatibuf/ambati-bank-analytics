@@ -60,11 +60,11 @@ Ambati Bank is a **fictional multi-national bank** used to simulate a real-time 
 
 **Key highlights:**
 - ⚡ **Real-time streaming** — Pub/Sub ingests 1 transaction + 1 clickstream event per second
-- 🔐 **Schema enforcement** — Avro schemas defined in Pub/Sub, but validation happens **locally via fastavro** before publishing. Missing primary keys are caught instantly on the publisher side before the message is even sent
-- 🚨 **Dead letter quarantine** — Messages that fail BigQuery delivery after 5 retries are routed to Cloud Storage. Note: Pub/Sub schema validation errors are returned directly to the publisher (not routed to dead letter) since they are rejected before entering the topic
+- 🔐 **Schema enforcement** — Avro schemas defined in Pub/Sub topics. Publisher uses **fastavro** to encode messages as Avro binary locally. Missing primary keys are caught by fastavro before the message is sent
 - 🔄 **Incremental models** — dbt only processes new rows on each run, not the full table
 - 🏦 **Multi-country** — Covers US, UK and Canada with currency-aware transactions
 - 📊 **4-page dashboard** — Transactions · Demographics · Financial Health · Card Details
+- 🧪 **Data quality** — dbt SAFE_CAST handles type casting with warn-only tests so pipeline never breaks
 
 ---
 
@@ -83,33 +83,20 @@ Ambati Bank is a **fictional multi-national bank** used to simulate a real-time 
 │                         INGESTION LAYER                             │
 │                                                                     │
 │   publisher.py                                                      │
-│   ├── fastavro validates schema LOCALLY before sending              │
-│   │   ├── Missing primary key → blocked here, never sent            │
-│   │   └── Valid message → encoded as Avro binary → sent to Pub/Sub  │
-│   └── Wrong encoding (raw JSON) → rejected by Pub/Sub at door       │
-│       (returned as error to publisher, NOT routed to dead letter)   │
+│   ├── Generates event as Python dict                                │
+│   ├── fastavro validates + encodes to Avro binary LOCALLY           │
+│   │   └── Missing primary key → ValueError, message never sent      │
+│   └── Valid binary message → published to Pub/Sub topic             │
 │                                                                     │
 │   ┌─────────────────────┐   ┌─────────────────────┐                │
 │   │  Pub/Sub Topic      │   │  Pub/Sub Topic      │                │
 │   │  ambati-transactions│   │  ambati-clickstream │                │
-│   │  [Avro Schema]      │   │  [Avro Schema]      │                │
 │   └──────────┬──────────┘   └──────────┬──────────┘                │
-│              │ ✅ valid Avro binary     │ ✅ valid Avro binary       │
 │              │                         │                            │
 │              ▼ BigQuery subscription   ▼ BigQuery subscription      │
-│              │ ❌ delivery fails (5x)  │ ❌ delivery fails (5x)     │
-│              ▼                         ▼                            │
-│   ┌──────────────────┐      ┌──────────────────┐                   │
-│   │  Dead Letter     │      │  Dead Letter     │                   │
-│   │  Topic           │      │  Topic           │                   │
-│   └────────┬─────────┘      └────────┬─────────┘                   │
-│            │                         │                              │
-│            ▼                         ▼                              │
-│   gs://ambati-raw-landing/dead-letter/transactions|clickstream/     │
-│   (infrastructure failures only — e.g. BigQuery unavailable)        │
-└─────────────┬───────────────────────┬────────────────────────────┘
-              │                       │
-              ▼                       ▼
+└─────────────┬───────────────────────────┬──────────────────────────┘
+              │                           │
+              ▼                           ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      STORAGE LAYER (BigQuery)                       │
 │                                                                     │
@@ -278,20 +265,13 @@ card_expiry_year        STRING NULLABLE     SAFE_CAST → INT64   INT64
 ### Real-Time Path
 ```
 1.  publisher.py generates Python dict (transaction or clickstream event)
-2.  fastavro validates schema LOCALLY and encodes to Avro binary bytes:
+2.  fastavro validates schema locally and encodes to Avro binary:
     ├── Missing primary key (transaction_id, customer_id)
-    │   → ValueError raised by fastavro → message NEVER sent to Pub/Sub
-    └── Valid message → Avro binary bytes → sent to Pub/Sub
-3.  Pub/Sub receives binary message:
-    ├── Wrong encoding (raw JSON sent instead of Avro binary)
-    │   → Pub/Sub rejects with schema error → returned to publisher as exception
-    │   → NOT routed to dead letter (rejected before entering topic)
-    └── Valid Avro binary → accepted → BigQuery subscription writes to raw table
-4.  BigQuery subscription delivery failure (network, permissions, BQ down):
-    ├── Pub/Sub retries up to 5 times with exponential backoff
-    └── After 5 failures → dead letter topic → Cloud Storage quarantine
+    │   → ValueError raised by fastavro → message never sent to Pub/Sub
+    └── Valid message → Avro binary bytes published to Pub/Sub topic
+3.  BigQuery subscription reads from Pub/Sub topic
+4.  Row written to transactions_raw / clickstream_raw in BigQuery
 ```
-> **Key insight:** Dead letter quarantine handles **infrastructure failures** (BigQuery unavailable, permissions), NOT data quality issues. Data quality (wrong types, bad values) is handled downstream by dbt SAFE_CAST.
 
 ### Batch Path
 ```
